@@ -1,0 +1,248 @@
+<html>
+  <head>
+    <style>
+      body {
+        font-family: helvetica;
+      }
+      a {
+        margin-right: 10px;
+        padding: 5px;
+        border: solid 1px dodgerBlue;
+        border-radius: 3px;
+        text-decoration: none;
+        color: dodgerBlue;
+      }
+
+      a.active {
+        background-color: dodgerBlue;
+        color: white;
+      }
+
+      form {
+        padding: 2em;
+        border: solid 1px dodgerBlue;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        height: 200px;
+      }
+
+      input,
+      button {
+        height: 3em;
+      }
+
+      div#content {
+        margin-top: 3em;
+      }
+
+      #products li {
+        display: flex;
+        border: solid 1px dodgerBlue;
+        border-width: 1px 0;
+        padding: 1em;
+      }
+
+      #products li div {
+        flex: 1;
+      }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.18.0/axios.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script
+      src="https://unpkg.com/react@16/umd/react.development.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"
+      crossorigin
+    ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-router-dom/5.0.0/react-router-dom.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/redux/4.0.1/redux.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const { HashRouter, Route, Link } = ReactRouterDOM;
+
+      //Actions
+      const Get_All = "Get_All";
+      const Add_New = "Add_New";
+      const Destroy_One = "Destroy_One";
+
+      const create = async (product, history) => {
+        const response = await axios.post("/api/products", product);
+        const products = [...this.state.products, response.data];
+        this.setState({ products });
+        history.push("/products");
+      };
+
+
+
+      const reducer = (state = [], action) => {
+        switch (action.type) {
+          case Get_All:
+            state = action.products;
+            break;
+          case Add_New:
+           state = [...state, product]
+            break;
+          case Destroy_One:
+          state = state.filter(product => action.product.id !== product.id )
+            break;
+        }
+        return state;
+      };
+
+      const store = Redux.createStore(reducer);
+
+      const start = async() => {
+        const response = await axios.get('/api/products');
+        store.dispatch({type: Get_All, products: response.data})
+      }
+      start()
+      const Home = () => <h2>Home</h2>;
+
+      class Nav extends React.Component {
+        constructor() {
+        super()
+          this.state = {
+            products: store.getState()
+          }
+        }
+        componentDidMount(){
+          this.unsubscribe = store.subscribe(()=> {
+          this.setState({products: store.getState()})}
+          )
+        }
+        componentWillUnmount(){
+          this.unsubscribe()
+        }
+        render() {
+          const { products } = this.state;
+          const { pathname } = this.props.location;
+          console.log(products)
+          const links = [
+            { text: "Home", to: "/" },
+            { text: `Products (${products.length})`, to: "/products" },
+            { text: "Create A Product", to: "/products/create" }
+          ];
+          return (
+            <div id="nav">
+              {links.map((link, idx) => (
+                <Link
+                  key={idx}
+                  to={link.to}
+                  className={pathname === link.to ? "active" : ""}
+                >
+                  {link.text}
+                </Link>
+              ))}
+            </div>
+          );
+        }
+      }
+      class Products extends React.Component {
+        constructor() {
+          super()
+          this.state = {
+            products: store.getState()
+          }
+          this.destroy = this.destroy.bind(this)
+        }
+
+        async destroy(product) {
+        await axios.delete(`/api/products/${product.id}`);
+        store.dispatch({
+          type: Destroy_One,
+          product
+          })
+      };
+
+        componentDidMount(){
+          this.unsubscribe = store.subscribe(()=> {
+          this.setState({products: store.getState()})}
+          )
+        }
+        componentWillUnmount(){
+          this.unsubscribe()
+        }
+
+        render() {
+          const { products } = this.state
+          const { destroy } = this
+          return (
+            <div>
+              <h2>Products</h2>
+              <ul id="products">
+                {products.map(product => (
+                  <li key={product.id}>
+                    <div>{product.name}</div>
+                    <button onClick={() => destroy(product)}>Destroy</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        }
+      }
+
+      class ProductCreate extends React.Component {
+        constructor() {
+          super();
+          this.state = {
+            name: ""
+          };
+          this.onChange = this.onChange.bind(this);
+          this.onSubmit = this.onSubmit.bind(this);
+        }
+        onChange(ev) {
+          this.setState({ [ev.target.name]: ev.target.value });
+        }
+        onSubmit(ev) {
+          ev.preventDefault();
+          this.props.create(this.state, this.props.history);
+        }
+        render() {
+          const { name } = this.state;
+          const { onSubmit, onChange } = this;
+          return (
+            <div>
+              <h2>Create A Product</h2>
+              <form onSubmit={onSubmit}>
+                <input
+                  name="name"
+                  onChange={onChange}
+                  value={name}
+                  placeholder="enter a new product"
+                />
+                <button disabled={!name}>Save</button>
+              </form>
+            </div>
+          );
+        }
+      }
+
+      const App = () => {
+        return (
+          <HashRouter>
+            <h1>Acme Products</h1>
+            <Route component={Nav} />
+            <div id="content">
+              <Route exact path="/" component={Home} />
+              <Route path="/products" component={Products}/>
+              <Route
+                path="/products/create"
+                render={({ history }) => (
+                  <ProductCreate create={create} history={history} />
+                )}
+              />
+            </div>
+          </HashRouter>
+        );
+      };
+      const root = document.querySelector("#root");
+      ReactDOM.render(<App />, root);
+    </script>
+  </body>
+</html>
