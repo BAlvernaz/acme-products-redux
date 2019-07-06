@@ -70,13 +70,6 @@
       const Add_New = "Add_New";
       const Destroy_One = "Destroy_One";
 
-      const create = async (product, history) => {
-        const response = await axios.post("/api/products", product);
-        const products = [...this.state.products, response.data];
-        this.setState({ products });
-        history.push("/products");
-      };
-
 
 
       const reducer = (state = [], action) => {
@@ -85,7 +78,7 @@
             state = action.products;
             break;
           case Add_New:
-           state = [...state, product]
+           state = [...state, action.product]
             break;
           case Destroy_One:
           state = state.filter(product => action.product.id !== product.id )
@@ -121,7 +114,6 @@
         render() {
           const { products } = this.state;
           const { pathname } = this.props.location;
-          console.log(products)
           const links = [
             { text: "Home", to: "/" },
             { text: `Products (${products.length})`, to: "/products" },
@@ -195,17 +187,25 @@
           };
           this.onChange = this.onChange.bind(this);
           this.onSubmit = this.onSubmit.bind(this);
+          this.create = this.create.bind(this)
         }
+
         onChange(ev) {
           this.setState({ [ev.target.name]: ev.target.value });
         }
         onSubmit(ev) {
           ev.preventDefault();
-          this.props.create(this.state, this.props.history);
+          this.create(this.state);
         }
+
+       async create(product) {
+       await axios.post("/api/products", product);
+        store.dispatch({type: Add_New, product})
+        console.log(this.props)
+      };
         render() {
           const { name } = this.state;
-          const { onSubmit, onChange } = this;
+          const { onSubmit, onChange, create } = this;
           return (
             <div>
               <h2>Create A Product</h2>
@@ -230,12 +230,10 @@
             <Route component={Nav} />
             <div id="content">
               <Route exact path="/" component={Home} />
-              <Route path="/products" component={Products}/>
+              <Route  exact path="/products" component={Products}/>
               <Route
                 path="/products/create"
-                render={({ history }) => (
-                  <ProductCreate create={create} history={history} />
-                )}
+               component={ProductCreate}
               />
             </div>
           </HashRouter>
